@@ -1,5 +1,54 @@
-const CACHE_NAME='postpng-maker-v2';
-const APP_SHELL=['./','./index.html','./css/style.css','./js/app.js','./js/pdf-service.js','./js/image-service.js','./js/export-service.js','./js/ui-service.js','./js/settings-service.js','./js/pwa-service.js','./libs/pdf.min.js','./libs/pdf.worker.min.js','./libs/jszip.min.js','./manifest.json','./icons/icon.svg','./icons/icon-192.png','./icons/icon-512.png','./icons/maskable-icon-512.png'];
-self.addEventListener('install',e=>{e.waitUntil(caches.open(CACHE_NAME).then(c=>c.addAll(APP_SHELL).catch(()=>undefined)));self.skipWaiting();});
-self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE_NAME).map(k=>caches.delete(k)))));self.clients.claim();});
-self.addEventListener('fetch',e=>{if(e.request.method!=='GET')return; const url=new URL(e.request.url); if(url.pathname.endsWith('.pdf')||url.pathname.startsWith('/blob:'))return; e.respondWith(caches.match(e.request).then(c=>c||fetch(e.request).then(r=>{if(url.origin===location.origin){const copy=r.clone();caches.open(CACHE_NAME).then(cache=>cache.put(e.request,copy));}return r;}).catch(()=>caches.match('./index.html'))));});
+const CACHE_NAME = 'postpng-maker-v3-final';
+const APP_SHELL = [
+  './',
+  './index.html',
+  './css/style.css',
+  './js/app.js',
+  './js/pdf-service.js',
+  './js/image-service.js',
+  './js/export-service.js',
+  './js/ui-service.js',
+  './js/settings-service.js',
+  './js/pwa-service.js',
+  './libs/pdf.min.js',
+  './libs/pdf.worker.min.js',
+  './libs/jszip.min.js',
+  './manifest.json',
+  './icons/icon.svg',
+  './icons/icon-192.png',
+  './icons/icon-512.png',
+  './icons/maskable-icon-512.png'
+];
+
+self.addEventListener('install', (event) => {
+  event.waitUntil(
+    caches.open(CACHE_NAME)
+      .then((cache) => cache.addAll(APP_SHELL))
+      .catch((error) => {
+        console.error('アプリシェルのキャッシュ登録に失敗しました。APP_SHELLのパスを確認してください。', error);
+        throw error;
+      })
+  );
+  self.skipWaiting();
+});
+
+self.addEventListener('activate', (event) => {
+  event.waitUntil(
+    caches.keys()
+      .then((keys) => Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))))
+      .then(() => self.clients.claim())
+  );
+});
+
+self.addEventListener('fetch', (event) => {
+  if (event.request.method !== 'GET') return;
+  const url = new URL(event.request.url);
+  if (url.origin !== self.location.origin) return;
+  if (url.pathname.endsWith('.pdf') || url.pathname.startsWith('/blob:')) return;
+  const isAppShell = APP_SHELL.some((path) => new URL(path, self.location.href).pathname === url.pathname);
+  if (!isAppShell) return;
+  event.respondWith(caches.match(event.request).then((cached) => cached || fetch(event.request).catch((error) => {
+    console.warn('ネットワーク取得に失敗しました。オフライン用index.htmlを返します。', error);
+    return caches.match('./index.html');
+  })));
+});
