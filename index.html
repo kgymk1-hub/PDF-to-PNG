@@ -68,7 +68,7 @@
         <label id="jpegQualityLabel" class="hidden">JPEG品質<input id="jpegQuality" type="range" min="60" max="92" step="1" value="80"><span id="jpegQualityText">80</span></label>
         <label>解像度倍率<select id="normalScale"><option value="1">1x</option><option value="1.5">1.5x</option><option value="2" selected>2x</option><option value="3">3x</option></select></label>
         <label>ページ範囲<input id="pageRange" type="text" placeholder="全ページ / 1-4 / 1,3,5"></label>
-        <label>背景<select id="backgroundColor"><option value="white" selected>白</option><option value="transparent">透明（PNGのみ）</option><option value="black">黒</option></select></label>
+        <label>背景<select id="backgroundColor"><option value="white" selected>白</option><option value="transparent">透明（PNGのみ）</option><option value="black">黒</option></select><span id="jpegTransparentHelp" class="help hidden">JPEGでは透明背景は使用できません。白背景に切り替わります。</span></label>
         <label>余白トリミング<select id="normalTrim"><option value="off" selected>OFF</option><option value="on">ON（簡易自動）</option></select></label>
       </div>
     </section>
@@ -87,6 +87,7 @@
 
   <div id="bottomBar" class="bottom-bar"><button id="bottomSelectBtn" class="primary large" type="button">PDFを選択</button><button id="convertBtn" class="primary large hidden" type="button" disabled>変換する</button><button id="firstSetZipBtn" class="secondary hidden" type="button">セット保存</button><button id="firstDraftBtn" class="secondary hidden" type="button">本文コピー</button><button id="downloadZipBtn" class="primary hidden" type="button" disabled>全保存</button><button id="reconvertBtn" class="secondary hidden" type="button">再変換</button></div>
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <dialog id="manualCopyDialog" class="manual-copy-dialog"><h2>手動コピー</h2><p>コピーに失敗しました。下のテキストを手動でコピーしてください。</p><textarea id="manualCopyText" rows="8" readonly></textarea><form method="dialog"><button class="primary" type="submit">閉じる</button></form></dialog>
   <dialog id="previewDialog"><button id="closeDialogBtn" class="dialog-close" type="button">閉じる</button><p id="dialogTitle"></p><img id="dialogImage" alt="拡大プレビュー"><div class="dialog-actions"><button id="prevImageBtn" type="button">前へ</button><button id="saveDialogBtn" type="button">保存</button><button id="nextImageBtn" type="button">次へ</button></div></dialog>
 
   <script src="libs/jszip.min.js" defer></script>
