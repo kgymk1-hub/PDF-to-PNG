@@ -3,89 +3,99 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#111827">
-  <meta name="description" content="PDFをブラウザ内だけでPNGへ変換するスマホ向けPWA">
-  <title>PDF→PNG 変換 PWA</title>
+  <meta name="theme-color" content="#2563EB">
+  <meta name="description" content="スマホでX投稿用4枚セットを作れる、ブラウザ内完結のPDF→PNG変換PWA">
+  <title>PostPNG Maker</title>
   <link rel="manifest" href="manifest.json">
   <link rel="stylesheet" href="css/style.css">
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect width='192' height='192' rx='42' fill='%23111827'/%3E%3Ctext x='96' y='115' text-anchor='middle' font-size='72' fill='white' font-family='Arial'%3EP%3C/text%3E%3C/svg%3E">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
 </head>
 <body>
   <header class="app-header">
-    <div>
-      <p class="eyebrow">ブラウザ内で安全に変換</p>
-      <h1>PDF→PNG 変換</h1>
-      <p class="lead">PDFをアップロードせず、Android Chromeでも使いやすいX投稿用PNGを作成します。</p>
-    </div>
+    <div><p class="brand">PostPNG Maker</p><p id="modeBadge" class="mode-badge">X投稿モード</p></div>
+    <button id="settingsJumpBtn" class="ghost icon-label" type="button" aria-label="出力設定へ移動">設定</button>
   </header>
 
   <main class="app-shell">
-    <section class="card controls" aria-labelledby="controls-title">
-      <h2 id="controls-title">1. PDFを選択</h2>
-      <label class="file-picker">
-        <input id="pdfFile" type="file" accept="application/pdf,.pdf">
-        <span>PDFファイルを選択</span>
-      </label>
-      <p id="fileInfo" class="file-info">ファイルは選択されていません。</p>
-
-      <fieldset>
-        <legend>2. 変換倍率</legend>
-        <div class="segmented" role="radiogroup" aria-label="変換倍率">
-          <label><input type="radio" name="scale" value="1" checked><span>1x</span></label>
-          <label><input type="radio" name="scale" value="2"><span>2x</span></label>
-          <label><input type="radio" name="scale" value="3"><span>3x</span></label>
-        </div>
-      </fieldset>
-
-      <fieldset>
-        <legend>3. X投稿向け横幅</legend>
-        <div class="segmented resize-options" role="radiogroup" aria-label="リサイズ幅">
-          <label><input type="radio" name="resizeWidth" value="original" checked><span>元サイズ</span></label>
-          <label><input type="radio" name="resizeWidth" value="1600"><span>1600px</span></label>
-          <label><input type="radio" name="resizeWidth" value="2000"><span>2000px</span></label>
-        </div>
-      </fieldset>
-
-      <button id="convertBtn" class="primary" type="button" disabled>PNGに変換</button>
-      <button id="downloadZipBtn" class="secondary" type="button" disabled>全ページをZIPで保存</button>
+    <section class="mode-card card" aria-labelledby="mode-title">
+      <h1 id="mode-title">PDFをスマホで投稿しやすい画像に変換</h1>
+      <div class="segmented two" role="radiogroup" aria-label="変換モード">
+        <label><input type="radio" name="mode" value="x" checked><span>X投稿モード</span></label>
+        <label><input type="radio" name="mode" value="normal"><span>通常モード</span></label>
+      </div>
+      <p id="modeHelp" class="help">4ページごとにX投稿セットを作り、白背景PNG・横幅1600pxを基準に出力します。</p>
     </section>
 
-    <section class="status-card" aria-live="polite">
-      <div id="message" class="message">PDFを選択すると変換できます。</div>
-      <div class="progress-wrap" aria-label="変換進捗">
-        <progress id="progressBar" value="0" max="100"></progress>
-        <span id="progressText">0%</span>
+    <section id="dropZone" class="file-card card" aria-labelledby="file-title">
+      <h2 id="file-title">PDFを選択してください</h2>
+      <p>スマホ内のPDFをPNG/JPEG画像に変換します。ファイルは外部サーバーへ送信されません。</p>
+      <label class="file-picker button primary large">
+        <input id="pdfFile" type="file" accept="application/pdf,.pdf">
+        <span>PDFを選択</span>
+      </label>
+      <p class="drop-note">PCではここへドラッグ&ドロップできます。</p>
+    </section>
+
+    <section id="pdfInfoCard" class="card hidden" aria-live="polite">
+      <h2>読み込み完了</h2>
+      <dl class="info-list">
+        <div><dt>ファイル名</dt><dd id="fileNameText">-</dd></div>
+        <div><dt>ページ数</dt><dd id="pageCountText">-</dd></div>
+        <div><dt>サイズ</dt><dd id="fileSizeText">-</dd></div>
+        <div><dt>モード</dt><dd id="selectedModeText">X投稿モード</dd></div>
+        <div><dt>推奨</dt><dd id="recommendText">4枚ごとに投稿セット化</dd></div>
+      </dl>
+      <p id="pdfWarning" class="notice hidden"></p>
+      <button id="changePdfBtn" class="secondary" type="button">PDFを変更</button>
+    </section>
+
+    <section id="settingsCard" class="card settings-card" aria-labelledby="settings-title">
+      <h2 id="settings-title">出力設定</h2>
+      <div id="xSettings" class="settings-group">
+        <label>出力横幅<select id="xWidth"><option value="1200">1200px：軽量</option><option value="1600" selected>1600px：標準</option><option value="2000">2000px：高精細</option><option value="original">元サイズ</option></select></label>
+        <label>余白トリミング<select id="xTrim"><option value="on" selected>ON（簡易自動）</option><option value="off">OFF</option></select></label>
+        <p class="help">細かい表は2000pxがおすすめです。X投稿モードは白背景PNG固定です。</p>
+        <details><summary>投稿本文・ALT下書き</summary>
+          <label>タイトル<input id="draftTitle" type="text" placeholder="○○資料"></label>
+          <label>更新日<input id="draftDate" type="text" placeholder="2026年6月22日"></label>
+          <label>補足<textarea id="draftNote" rows="2" placeholder="詳細は添付画像をご確認ください。"></textarea></label>
+          <label>ハッシュタグ<input id="draftTags" type="text" placeholder="#タグ1 #タグ2"></label>
+          <label>ALTテンプレート<textarea id="altTemplate" rows="2"></textarea></label>
+        </details>
       </div>
+      <div id="normalSettings" class="settings-group hidden">
+        <label>出力形式<select id="normalFormat"><option value="png" selected>PNG（文字・表向け）</option><option value="jpeg">JPEG（写真・軽量）</option></select></label>
+        <label id="jpegQualityLabel" class="hidden">JPEG品質<input id="jpegQuality" type="range" min="60" max="92" step="1" value="80"><span id="jpegQualityText">80</span></label>
+        <label>解像度倍率<select id="normalScale"><option value="1">1x</option><option value="1.5">1.5x</option><option value="2" selected>2x</option><option value="3">3x</option></select></label>
+        <label>ページ範囲<input id="pageRange" type="text" placeholder="全ページ / 1-4 / 1,3,5"></label>
+        <label>背景<select id="backgroundColor"><option value="white" selected>白</option><option value="transparent">透明（PNGのみ）</option><option value="black">黒</option></select></label>
+        <label>余白トリミング<select id="normalTrim"><option value="off" selected>OFF</option><option value="on">ON（簡易自動）</option></select></label>
+      </div>
+    </section>
+
+    <section id="progressCard" class="status-card card" aria-live="polite">
+      <div id="message" class="message">PDFを選択すると変換できます。</div>
+      <div class="progress-wrap"><progress id="progressBar" value="0" max="100"></progress><span id="progressText">0%</span></div>
+      <button id="cancelBtn" class="secondary hidden" type="button">キャンセル</button>
     </section>
 
     <section class="results" aria-labelledby="results-title">
       <h2 id="results-title">変換結果</h2>
-      <div id="previewContainer" class="preview-container empty">
-        <p>変換後、ページごとのプレビューとダウンロードボタンが表示されます。</p>
-      </div>
+      <div id="previewContainer" class="preview-container empty"><p>変換後、ページごとのプレビューと保存ボタンが表示されます。</p></div>
     </section>
   </main>
 
-  <template id="setTemplate">
-    <section class="post-set">
-      <h3></h3>
-      <div class="page-grid"></div>
-    </section>
-  </template>
+  <div id="bottomBar" class="bottom-bar"><button id="bottomSelectBtn" class="primary large" type="button">PDFを選択</button><button id="convertBtn" class="primary large hidden" type="button" disabled>変換する</button><button id="firstSetZipBtn" class="secondary hidden" type="button">セット保存</button><button id="firstDraftBtn" class="secondary hidden" type="button">本文コピー</button><button id="downloadZipBtn" class="primary hidden" type="button" disabled>全保存</button><button id="reconvertBtn" class="secondary hidden" type="button">再変換</button></div>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <dialog id="previewDialog"><button id="closeDialogBtn" class="dialog-close" type="button">閉じる</button><p id="dialogTitle"></p><img id="dialogImage" alt="拡大プレビュー"><div class="dialog-actions"><button id="prevImageBtn" type="button">前へ</button><button id="saveDialogBtn" type="button">保存</button><button id="nextImageBtn" type="button">次へ</button></div></dialog>
 
-  <template id="pageTemplate">
-    <article class="page-card">
-      <img alt="" loading="lazy">
-      <div class="page-meta">
-        <strong></strong>
-        <span></span>
-      </div>
-      <a class="download-link" download>このページを保存</a>
-    </article>
-  </template>
-
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.min.mjs" type="module"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" defer></script>
+  <script src="libs/jszip.min.js" defer></script>
+  <script src="js/settings-service.js" type="module"></script>
+  <script src="js/image-service.js" type="module"></script>
+  <script src="js/pdf-service.js" type="module"></script>
+  <script src="js/export-service.js" type="module"></script>
+  <script src="js/ui-service.js" type="module"></script>
+  <script src="js/pwa-service.js" type="module"></script>
   <script src="js/app.js" type="module"></script>
 </body>
 </html>

@@ -1,197 +1,28 @@
-const pdfFileInput = document.querySelector('#pdfFile');
-const fileInfo = document.querySelector('#fileInfo');
-const convertBtn = document.querySelector('#convertBtn');
-const downloadZipBtn = document.querySelector('#downloadZipBtn');
-const message = document.querySelector('#message');
-const progressBar = document.querySelector('#progressBar');
-const progressText = document.querySelector('#progressText');
-const previewContainer = document.querySelector('#previewContainer');
-const setTemplate = document.querySelector('#setTemplate');
-const pageTemplate = document.querySelector('#pageTemplate');
-
-let selectedFile = null;
-let convertedPages = [];
-
-const setMessage = (text, type = '') => {
-  message.textContent = text;
-  message.className = `message ${type}`.trim();
-};
-
-const setProgress = (current, total) => {
-  const value = total ? Math.round((current / total) * 100) : 0;
-  progressBar.value = value;
-  progressText.textContent = `${value}%`;
-};
-
-const getSelectedValue = (name) => document.querySelector(`input[name="${name}"]:checked`).value;
-
-const safeBaseName = (name) => name.replace(/\.pdf$/i, '').replace(/[^a-z0-9_-]+/gi, '_').replace(/^_+|_+$/g, '') || 'converted_pdf';
-const pageFileName = (baseName, pageNumber) => `${baseName}_page-${String(pageNumber).padStart(2, '0')}.png`;
-
-pdfFileInput.addEventListener('change', () => {
-  selectedFile = pdfFileInput.files?.[0] ?? null;
-  convertedPages.forEach((page) => URL.revokeObjectURL(page.url));
-  convertedPages = [];
-  renderPreviews();
-  downloadZipBtn.disabled = true;
-  setProgress(0, 0);
-
-  if (!selectedFile) {
-    fileInfo.textContent = 'ファイルは選択されていません。';
-    convertBtn.disabled = true;
-    setMessage('PDFを選択すると変換できます。');
-    return;
-  }
-
-  if (selectedFile.type !== 'application/pdf' && !selectedFile.name.toLowerCase().endsWith('.pdf')) {
-    selectedFile = null;
-    convertBtn.disabled = true;
-    fileInfo.textContent = 'PDFファイルを選択してください。';
-    setMessage('選択されたファイルはPDFではありません。', 'error');
-    return;
-  }
-
-  fileInfo.textContent = `${selectedFile.name}（${(selectedFile.size / 1024 / 1024).toFixed(2)} MB）`;
-  convertBtn.disabled = false;
-  setMessage('設定を選んで「PNGに変換」を押してください。');
-});
-
-convertBtn.addEventListener('click', async () => {
-  if (!selectedFile) return;
-
-  convertBtn.disabled = true;
-  downloadZipBtn.disabled = true;
-  convertedPages.forEach((page) => URL.revokeObjectURL(page.url));
-  convertedPages = [];
-  renderPreviews();
-  setProgress(0, 1);
-  setMessage('PDFを読み込んでいます…');
-
-  try {
-    const pdfjsLib = await import('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.min.mjs');
-    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/pdf.worker.min.mjs';
-
-    const bytes = await selectedFile.arrayBuffer();
-    const pdf = await pdfjsLib.getDocument({ data: bytes }).promise;
-    const scale = Number(getSelectedValue('scale'));
-    const resizeWidth = getSelectedValue('resizeWidth');
-    const baseName = safeBaseName(selectedFile.name);
-
-    for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
-      setMessage(`${pageNumber}/${pdf.numPages}ページ目を変換中…`);
-      const page = await pdf.getPage(pageNumber);
-      const viewport = page.getViewport({ scale });
-      const renderCanvas = document.createElement('canvas');
-      const renderContext = renderCanvas.getContext('2d', { alpha: false });
-      renderCanvas.width = Math.ceil(viewport.width);
-      renderCanvas.height = Math.ceil(viewport.height);
-      renderContext.fillStyle = '#ffffff';
-      renderContext.fillRect(0, 0, renderCanvas.width, renderCanvas.height);
-      await page.render({ canvasContext: renderContext, viewport, background: 'white' }).promise;
-
-      const outputCanvas = resizeCanvas(renderCanvas, resizeWidth);
-      const blob = await canvasToPngBlob(outputCanvas);
-      const fileName = pageFileName(baseName, pageNumber);
-      convertedPages.push({ pageNumber, fileName, blob, url: URL.createObjectURL(blob), width: outputCanvas.width, height: outputCanvas.height });
-      setProgress(pageNumber, pdf.numPages);
-      await new Promise((resolve) => requestAnimationFrame(resolve));
-    }
-
-    renderPreviews();
-    downloadZipBtn.disabled = convertedPages.length === 0;
-    setMessage(`${convertedPages.length}ページをPNGに変換しました。`, 'success');
-  } catch (error) {
-    console.error(error);
-    setMessage(`変換できませんでした。PDFが破損していないか、別のファイルでお試しください。（${error.message}）`, 'error');
-    setProgress(0, 1);
-  } finally {
-    convertBtn.disabled = !selectedFile;
-  }
-});
-
-downloadZipBtn.addEventListener('click', async () => {
-  if (!convertedPages.length || !window.JSZip) return;
-  downloadZipBtn.disabled = true;
-  setMessage('ZIPファイルを作成中…');
-
-  try {
-    const zip = new JSZip();
-    convertedPages.forEach((page) => zip.file(page.fileName, page.blob));
-    const zipBlob = await zip.generateAsync({ type: 'blob' }, (metadata) => {
-      progressBar.value = Math.round(metadata.percent);
-      progressText.textContent = `${Math.round(metadata.percent)}%`;
-    });
-    const url = URL.createObjectURL(zipBlob);
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.download = `${safeBaseName(selectedFile?.name ?? 'converted_pdf')}_png_pages.zip`;
-    anchor.click();
-    URL.revokeObjectURL(url);
-    setMessage('ZIPファイルを保存しました。', 'success');
-  } catch (error) {
-    console.error(error);
-    setMessage(`ZIPを作成できませんでした。（${error.message}）`, 'error');
-  } finally {
-    downloadZipBtn.disabled = false;
-  }
-});
-
-function resizeCanvas(sourceCanvas, resizeWidth) {
-  if (resizeWidth === 'original') return sourceCanvas;
-  const targetWidth = Number(resizeWidth);
-  const ratio = targetWidth / sourceCanvas.width;
-  const targetHeight = Math.round(sourceCanvas.height * ratio);
-  const outputCanvas = document.createElement('canvas');
-  outputCanvas.width = targetWidth;
-  outputCanvas.height = targetHeight;
-  const ctx = outputCanvas.getContext('2d', { alpha: false });
-  ctx.fillStyle = '#ffffff';
-  ctx.fillRect(0, 0, targetWidth, targetHeight);
-  ctx.imageSmoothingEnabled = true;
-  ctx.imageSmoothingQuality = 'high';
-  ctx.drawImage(sourceCanvas, 0, 0, targetWidth, targetHeight);
-  return outputCanvas;
-}
-
-function canvasToPngBlob(canvas) {
-  return new Promise((resolve, reject) => {
-    canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error('PNGの生成に失敗しました')), 'image/png');
-  });
-}
-
-function renderPreviews() {
-  previewContainer.innerHTML = '';
-  previewContainer.classList.toggle('empty', convertedPages.length === 0);
-  if (!convertedPages.length) {
-    previewContainer.innerHTML = '<p>変換後、ページごとのプレビューとダウンロードボタンが表示されます。</p>';
-    return;
-  }
-
-  for (let index = 0; index < convertedPages.length; index += 4) {
-    const setNode = setTemplate.content.firstElementChild.cloneNode(true);
-    const setNumber = Math.floor(index / 4) + 1;
-    setNode.querySelector('h3').textContent = `X投稿セット${setNumber}`;
-    const grid = setNode.querySelector('.page-grid');
-
-    convertedPages.slice(index, index + 4).forEach((page) => {
-      const pageNode = pageTemplate.content.firstElementChild.cloneNode(true);
-      const img = pageNode.querySelector('img');
-      img.src = page.url;
-      img.alt = `${page.fileName} のプレビュー`;
-      pageNode.querySelector('strong').textContent = `ページ ${page.pageNumber}`;
-      pageNode.querySelector('span').textContent = `${page.width}×${page.height}px`;
-      const link = pageNode.querySelector('.download-link');
-      link.href = page.url;
-      link.download = page.fileName;
-      grid.append(pageNode);
-    });
-
-    previewContainer.append(setNode);
-  }
-}
-
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('service-worker.js').catch((error) => console.warn('Service worker registration failed:', error));
-  });
-}
+import {loadSettings,saveSettings,parsePageRange,safeBaseName,formatBytes} from './settings-service.js';
+import {loadPdf,renderPage} from './pdf-service.js';
+import {downloadBlob,zipImages,copyText} from './export-service.js';
+import {$,$$,toast,setMessage,setProgress,confirmDiscard} from './ui-service.js';
+const state={settings:loadSettings(),file:null,pdf:null,images:[],status:'idle',cancel:false,dialogIndex:0};
+const names={x:'X投稿モード',normal:'通常モード'};
+function init(){bind(); applySettingsToUi(); renderAll();}
+function bind(){ $('#pdfFile').addEventListener('change',e=>handleFile(e.target.files?.[0])); $('#bottomSelectBtn').onclick=()=>$('#pdfFile').click(); $('#changePdfBtn').onclick=()=>$('#pdfFile').click(); $('#settingsJumpBtn').onclick=()=>$('#settingsCard').scrollIntoView({behavior:'smooth'}); $('#convertBtn').onclick=convert; $('#reconvertBtn').onclick=convert; $('#downloadZipBtn').onclick=downloadAll; $('#cancelBtn').onclick=()=>{state.cancel=true; setMessage('キャンセル要求を受け付けました。現在のページ完了後に停止します。','warn');}; $('#firstSetZipBtn').onclick=()=>downloadSet(1); $('#firstDraftBtn').onclick=()=>copyDraft(1); $$('input[name=mode]').forEach(r=>r.onchange=()=>changeMode(r.value)); ['xWidth','xTrim','normalFormat','normalScale','pageRange','backgroundColor','normalTrim','jpegQuality','draftTitle','draftDate','draftNote','draftTags','altTemplate'].forEach(id=>{$('#'+id).addEventListener('input',readUiSettings);}); $('#normalFormat').onchange=()=>{$('#jpegQualityLabel').classList.toggle('hidden',$('#normalFormat').value!=='jpeg');readUiSettings();}; $('#jpegQuality').oninput=()=>$('#jpegQualityText').textContent=$('#jpegQuality').value; $('#dropZone').addEventListener('dragover',e=>{e.preventDefault();$('#dropZone').classList.add('drag');}); $('#dropZone').addEventListener('dragleave',()=>$('#dropZone').classList.remove('drag')); $('#dropZone').addEventListener('drop',e=>{e.preventDefault();$('#dropZone').classList.remove('drag');handleFile(e.dataTransfer.files?.[0]);}); $('#closeDialogBtn').onclick=()=>$('#previewDialog').close(); $('#prevImageBtn').onclick=()=>openDialog(state.dialogIndex-1); $('#nextImageBtn').onclick=()=>openDialog(state.dialogIndex+1); $('#saveDialogBtn').onclick=()=>{const i=state.images[state.dialogIndex]; if(i) downloadBlob(i.blob,i.fileName);};}
+function readUiSettings(){Object.assign(state.settings,{mode:document.querySelector('input[name=mode]:checked').value,x:{width:$('#xWidth').value,trim:$('#xTrim').value},normal:{format:$('#normalFormat').value,scale:$('#normalScale').value,range:$('#pageRange').value,background:$('#backgroundColor').value,trim:$('#normalTrim').value,quality:Number($('#jpegQuality').value)},draft:{title:$('#draftTitle').value,date:$('#draftDate').value,note:$('#draftNote').value,tags:$('#draftTags').value,altTemplate:$('#altTemplate').value}}); saveSettings(state.settings); renderMode();}
+function applySettingsToUi(){document.querySelector(`input[name=mode][value=${state.settings.mode}]`).checked=true; $('#xWidth').value=state.settings.x.width; $('#xTrim').value=state.settings.x.trim; $('#normalFormat').value=state.settings.normal.format; $('#normalScale').value=state.settings.normal.scale; $('#pageRange').value=state.settings.normal.range; $('#backgroundColor').value=state.settings.normal.background; $('#normalTrim').value=state.settings.normal.trim; $('#jpegQuality').value=state.settings.normal.quality; $('#jpegQualityText').textContent=state.settings.normal.quality; $('#draftTitle').value=state.settings.draft.title; $('#draftDate').value=state.settings.draft.date; $('#draftNote').value=state.settings.draft.note; $('#draftTags').value=state.settings.draft.tags; $('#altTemplate').value=state.settings.draft.altTemplate; $('#jpegQualityLabel').classList.toggle('hidden',state.settings.normal.format!=='jpeg');}
+function changeMode(mode){if(state.images.length&&!confirmDiscard()){document.querySelector(`input[name=mode][value=${state.settings.mode}]`).checked=true;return;} revokeImages(); state.settings.mode=mode; saveSettings(state.settings); renderAll();}
+async function handleFile(file){if(!file)return; if(state.images.length&&!confirmDiscard()) return; if(file.type!=='application/pdf'&&!file.name.toLowerCase().endsWith('.pdf')){setMessage('PDFファイルを選択してください。','error');return;} revokeImages(); state.file=file; state.pdf=null; state.status='loadingPdf'; renderAll(); setMessage('PDFを読み込んでいます…'); try{state.pdf=await loadPdf(file); state.status='ready'; setMessage('読み込み完了。設定を確認して「変換する」を押してください。','success');}catch(e){state.status='error'; setMessage(e.message,'error');} renderAll();}
+function revokeImages(){state.images.forEach(i=>URL.revokeObjectURL(i.url)); state.images=[];}
+async function convert(){if(!state.pdf)return; readUiSettings(); revokeImages(); state.cancel=false; state.status='converting'; renderAll(); try{const pages=state.settings.mode==='normal'?parsePageRange(state.settings.normal.range,state.pdf.numPages):Array.from({length:state.pdf.numPages},(_,i)=>i+1); if(pages.length>20&&!confirm(`${pages.length}ページを変換します。スマホでは時間がかかる場合があります。続行しますか？`)){state.status='ready';renderAll();return;} for(let idx=0;idx<pages.length;idx++){const p=pages[idx]; setMessage(`変換中 ${idx+1} / ${pages.length}ページ 現在：${p}ページ目を画像化しています`); const opt=state.settings.mode==='x'?{scale:2,format:'png',quality:92,background:'white',trim:state.settings.x.trim==='on',width:state.settings.x.width}:{scale:Number(state.settings.normal.scale),format:state.settings.normal.format,quality:state.settings.normal.quality,background:state.settings.normal.background,trim:state.settings.normal.trim==='on',width:'original'}; const r=await renderPage(state.pdf,p,opt); const fileName=fileNameFor(p,opt.format); state.images.push({...r,pageNumber:p,fileName,url:URL.createObjectURL(r.blob),setNumber:Math.ceil(p/4),alt:makeAlt(p)}); setProgress(((idx+1)/pages.length)*100); renderPreviews(); await new Promise(requestAnimationFrame); if(state.cancel){state.status='cancelled';setMessage('変換をキャンセルしました。途中まで保存できます。','warn');renderAll();return;}} state.status='converted'; setMessage(`${state.images.length}ページを変換しました。`,'success'); toast('変換が完了しました');}catch(e){console.error(e);state.status='error';setMessage(e.message||'変換中にエラーが発生しました。倍率を下げて再度お試しください。','error');} renderAll();}
+function fileNameFor(page,fmt){const ext=fmt==='jpeg'?'jpg':'png'; const base=safeBaseName(state.file?.name); if(state.settings.mode==='x') return `${base}_xset${String(Math.ceil(page/4)).padStart(2,'0')}_page-${String(page).padStart(2,'0')}.${ext}`; return `${base}_page-${String(page).padStart(2,'0')}.${ext}`;}
+function makeDraft(set){const imgs=state.images.filter(i=>i.setNumber===set); const first=imgs[0]?.pageNumber||1,last=imgs.at(-1)?.pageNumber||first; const d=state.settings.draft; return `${d.title?`${d.title}を更新しました。\n\n`:''}画像は${first}〜${last}ページ目です。\n${d.note||'詳細は添付画像をご確認ください。'}\n\n${d.date||''}${d.date&&d.tags?'\n':''}${d.tags||''}`.trim();}
+function makeAlt(page){return (state.settings.draft.altTemplate||'PDF資料の{page}ページ目を画像化したものです。').replaceAll('{page}',page);}
+async function downloadAll(){const base=safeBaseName(state.file?.name); await zipImages(state.images,`${base}_${state.settings.mode==='x'?'xpost_all':'png'}.zip`,setProgress).then(()=>toast('ZIPを保存しました')).catch(e=>setMessage(`ZIP作成に失敗しました。${e.message}`,'error'));}
+async function downloadSet(set){const imgs=state.images.filter(i=>i.setNumber===set); if(!imgs.length)return; await zipImages(imgs,`${safeBaseName(state.file?.name)}_xset${String(set).padStart(2,'0')}.zip`,setProgress).then(()=>toast('セットZIPを保存しました')).catch(e=>setMessage(`セットZIP作成に失敗しました。${e.message}`,'error'));}
+async function copyDraft(set){await copyText(makeDraft(set)); toast('本文をコピーしました');}
+async function copyAlts(set){const text=state.images.filter(i=>i.setNumber===set).map(i=>`ページ${i.pageNumber}\n${i.alt}`).join('\n---\n'); await copyText(text); toast('ALTをまとめてコピーしました');}
+function renderMode(){const m=state.settings.mode; $('#modeBadge').textContent=names[m]; $('#selectedModeText').textContent=names[m]; $('#modeHelp').textContent=m==='x'?'4ページごとにX投稿セットを作り、白背景PNG・横幅1600pxを基準に出力します。':'ページ範囲、形式、倍率、背景色を選べる汎用変換モードです。'; $('#xSettings').classList.toggle('hidden',m!=='x'); $('#normalSettings').classList.toggle('hidden',m!=='normal'); $('#recommendText').textContent=m==='x'?'4枚ごとに投稿セット化':'ページ範囲と形式を選んで変換';}
+function renderAll(){renderMode(); const has=!!state.file; $('#pdfInfoCard').classList.toggle('hidden',!has); if(has){$('#fileNameText').textContent=state.file.name; $('#fileSizeText').textContent=formatBytes(state.file.size); $('#pageCountText').textContent=state.pdf?`${state.pdf.numPages}ページ`:'読み込み中'; const warn=state.pdf&&state.pdf.numPages>20?'ページ数が多いため、スマホでは分割変換や低倍率設定をおすすめします。':''; $('#pdfWarning').textContent=warn; $('#pdfWarning').classList.toggle('hidden',!warn);} const conv=state.status==='converting', converted=state.images.length>0; $('#cancelBtn').classList.toggle('hidden',!conv); $('#convertBtn').classList.toggle('hidden',!has||converted); $('#convertBtn').disabled=!state.pdf||conv; $('#bottomSelectBtn').classList.toggle('hidden',has); $('#downloadZipBtn').classList.toggle('hidden',!converted); $('#downloadZipBtn').disabled=!converted||conv; $('#reconvertBtn').classList.toggle('hidden',!converted); $('#firstSetZipBtn').classList.toggle('hidden',!(converted&&state.settings.mode==='x')); $('#firstDraftBtn').classList.toggle('hidden',!(converted&&state.settings.mode==='x')); renderPreviews();}
+function renderPreviews(){const root=$('#previewContainer'); if(!state.images.length){root.className='preview-container empty'; root.innerHTML='<p>変換後、ページごとのプレビューと保存ボタンが表示されます。</p>'; return;} root.className='preview-container'; root.innerHTML=''; if(state.settings.mode==='x'){const max=Math.max(...state.images.map(i=>i.setNumber)); for(let s=1;s<=max;s++) root.append(setCard(s));} else state.images.forEach((img,i)=>root.append(pageCard(img,i));}
+function setCard(s){const imgs=state.images.filter(i=>i.setNumber===s); const sec=document.createElement('section'); sec.className='post-set card'; const first=imgs[0].pageNumber,last=imgs.at(-1).pageNumber; sec.innerHTML=`<details ${s===1?'open':''}><summary><strong>X投稿セット ${s}</strong><span>対象：${first}〜${last}ページ / ${imgs.length}枚</span></summary><div class="set-actions"><button>セットをZIP保存</button><button>本文をコピー</button><button>ALTをまとめてコピー</button><button>セット名をコピー</button></div><p class="counter">本文目安：${makeDraft(s).length}/280文字</p><div class="page-grid"></div></details>`; const b=$$('button',sec); b[0].onclick=()=>downloadSet(s); b[1].onclick=()=>copyDraft(s); b[2].onclick=()=>copyAlts(s); b[3].onclick=()=>copyText(`X投稿セット${s} ${first}〜${last}ページ`).then(()=>toast('セット名をコピーしました')); const grid=$('.page-grid',sec); imgs.forEach(img=>grid.append(pageCard(img,state.images.indexOf(img)))); return sec;}
+function pageCard(img,index){const a=document.createElement('article'); a.className='page-card'; a.innerHTML=`<h3>ページ ${img.pageNumber}</h3><button class="image-button" aria-label="ページ${img.pageNumber}を拡大表示"><img loading="lazy" alt="ページ${img.pageNumber}の変換プレビュー" src="${img.url}"></button><p class="page-meta">サイズ：${img.width} × ${img.height}px / 容量：${formatBytes(img.blob.size)}</p><div class="card-actions"><button>保存</button><button>詳細</button></div><label class="alt-field">ALT下書き<textarea rows="2">${img.alt}</textarea></label><button class="copy-alt">ALTをコピー</button>`; $('.image-button',a).onclick=()=>openDialog(index); const buttons=$$('button',a); buttons[1].onclick=()=>downloadBlob(img.blob,img.fileName); buttons[2].onclick=()=>toast(`ファイル名: ${img.fileName}`); $('.alt-field textarea',a).oninput=e=>img.alt=e.target.value; $('.copy-alt',a).onclick=()=>copyText(img.alt).then(()=>toast('ALTをコピーしました')); return a;}
+function openDialog(index){if(index<0||index>=state.images.length)return; state.dialogIndex=index; const img=state.images[index]; $('#dialogTitle').textContent=`ページ ${img.pageNumber} / ${state.images.length}`; $('#dialogImage').src=img.url; $('#previewDialog').showModal();}
+init();

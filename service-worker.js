@@ -1,31 +1,5 @@
-const CACHE_NAME = 'pdf-to-png-pwa-v1';
-const APP_SHELL = [
-  './',
-  './index.html',
-  './css/style.css',
-  './js/app.js',
-  './manifest.json'
-];
-
-self.addEventListener('install', (event) => {
-  event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL)));
-  self.skipWaiting();
-});
-
-self.addEventListener('activate', (event) => {
-  event.waitUntil(
-    caches.keys().then((keys) => Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))))
-  );
-  self.clients.claim();
-});
-
-self.addEventListener('fetch', (event) => {
-  if (event.request.method !== 'GET') return;
-  event.respondWith(
-    caches.match(event.request).then((cached) => cached || fetch(event.request).then((response) => {
-      const copy = response.clone();
-      caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
-      return response;
-    }).catch(() => caches.match('./index.html')))
-  );
-});
+const CACHE_NAME='postpng-maker-v2';
+const APP_SHELL=['./','./index.html','./css/style.css','./js/app.js','./js/pdf-service.js','./js/image-service.js','./js/export-service.js','./js/ui-service.js','./js/settings-service.js','./js/pwa-service.js','./libs/pdf.min.js','./libs/pdf.worker.min.js','./libs/jszip.min.js','./manifest.json','./icons/icon.svg','./icons/icon-192.png','./icons/icon-512.png','./icons/maskable-icon-512.png'];
+self.addEventListener('install',e=>{e.waitUntil(caches.open(CACHE_NAME).then(c=>c.addAll(APP_SHELL).catch(()=>undefined)));self.skipWaiting();});
+self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE_NAME).map(k=>caches.delete(k)))));self.clients.claim();});
+self.addEventListener('fetch',e=>{if(e.request.method!=='GET')return; const url=new URL(e.request.url); if(url.pathname.endsWith('.pdf')||url.pathname.startsWith('/blob:'))return; e.respondWith(caches.match(e.request).then(c=>c||fetch(e.request).then(r=>{if(url.origin===location.origin){const copy=r.clone();caches.open(CACHE_NAME).then(cache=>cache.put(e.request,copy));}return r;}).catch(()=>caches.match('./index.html'))));});
