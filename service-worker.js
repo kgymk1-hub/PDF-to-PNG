@@ -1,6 +1,5 @@
 const CACHE_NAME = 'postpng-maker-v5-final';
 const APP_SHELL = [
-  './',
   './index.html',
   './css/style.css',
   './js/app.js',
