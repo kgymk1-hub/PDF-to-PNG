@@ -91,13 +91,48 @@
   <dialog id="manualCopyDialog" class="manual-copy-dialog"><h2>手動コピー</h2><p>コピーに失敗しました。下のテキストを手動でコピーしてください。</p><textarea id="manualCopyText" rows="8" readonly></textarea><form method="dialog"><button class="primary" type="submit">閉じる</button></form></dialog>
   <dialog id="previewDialog"><button id="closeDialogBtn" class="dialog-close" type="button">閉じる</button><p id="dialogTitle"></p><img id="dialogImage" alt="拡大プレビュー"><div class="dialog-actions"><button id="prevImageBtn" type="button">前へ</button><button id="saveDialogBtn" type="button">保存</button><button id="nextImageBtn" type="button">次へ</button></div></dialog>
 
+  <script>
+    window.__POSTPNG_BOOT = {
+      startedAt: Date.now(),
+      appLoaded: false,
+      initCompleted: false
+    };
+
+    window.addEventListener('error', function (event) {
+      var el = document.getElementById('startupStatus');
+      if (el) {
+        el.classList.add('error');
+        el.textContent = 'アプリの読み込み中にエラーが発生しました：' + (event.message || '詳細不明');
+      }
+      console.error('bootstrap error', event);
+    });
+
+    window.addEventListener('unhandledrejection', function (event) {
+      var el = document.getElementById('startupStatus');
+      if (el) {
+        el.classList.add('error');
+        el.textContent = 'アプリの初期化中にエラーが発生しました：' + (event.reason && event.reason.message ? event.reason.message : event.reason || '詳細不明');
+      }
+      console.error('bootstrap unhandledrejection', event);
+    });
+
+    window.setTimeout(function () {
+      if (!window.__POSTPNG_BOOT || !window.__POSTPNG_BOOT.appLoaded) {
+        var el = document.getElementById('startupStatus');
+        if (el) {
+          el.classList.add('error');
+          el.textContent = 'アプリ本体 js/app.js が読み込まれていません。古いService Workerキャッシュ、GitHub Pagesの反映遅延、またはJavaScriptモジュールの読み込み失敗が考えられます。サイトデータを削除して再読み込みしてください。';
+        }
+      } else if (!window.__POSTPNG_BOOT.initCompleted) {
+        var el2 = document.getElementById('startupStatus');
+        if (el2) {
+          el2.classList.add('error');
+          el2.textContent = 'アプリ本体は読み込まれましたが、初期化が完了していません。ブラウザのコンソールを確認してください。';
+        }
+      }
+    }, 5000);
+  </script>
   <script src="libs/jszip.min.js" defer></script>
-  <script src="js/settings-service.js" type="module"></script>
-  <script src="js/image-service.js" type="module"></script>
-  <script src="js/pdf-service.js" type="module"></script>
-  <script src="js/export-service.js" type="module"></script>
-  <script src="js/ui-service.js" type="module"></script>
-  <script src="js/pwa-service.js" type="module"></script>
   <script src="js/app.js" type="module"></script>
 </body>
 </html>
