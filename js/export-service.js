@@ -1,0 +1,3 @@
+export function downloadBlob(blob,fileName){const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=fileName; document.body.append(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),1000);}
+export async function zipImages(images,zipName,onProgress){if(!window.JSZip) throw new Error('JSZipを読み込めませんでした。'); const zip=new JSZip(); images.forEach(i=>zip.file(i.fileName,i.blob)); const blob=await zip.generateAsync({type:'blob'},m=>onProgress?.(Math.round(m.percent))); downloadBlob(blob,zipName);}
+export async function copyText(text){await navigator.clipboard.writeText(text);}
