@@ -1,4 +1,4 @@
-const CACHE_NAME = 'postpng-maker-v6-diagnostics';
+const CACHE_NAME = 'postpng-maker-v7-bootstrap';
 const APP_SHELL = [
   './',
   './index.html',
@@ -47,7 +47,8 @@ self.addEventListener('fetch', (event) => {
   if (url.protocol === 'blob:' || url.pathname.endsWith('.pdf')) return;
   const scopePath = new URL(self.registration.scope).pathname;
   const indexPath = new URL('./index.html', self.location.href).pathname;
-  const isRootRequest = url.pathname === scopePath || url.pathname === `${scopePath}/`;
+  const normalizedScopePath = scopePath.endsWith('/') ? scopePath.slice(0, -1) : scopePath;
+  const isRootRequest = url.pathname === scopePath || url.pathname === normalizedScopePath || url.pathname === `${normalizedScopePath}/`;
   const isIndexRequest = url.pathname === indexPath;
   const isAppShell = APP_SHELL.some((path) => new URL(path, self.location.href).pathname === url.pathname);
   if (!isAppShell) return;

@@ -1,3 +1,6 @@
+window.__POSTPNG_BOOT = window.__POSTPNG_BOOT || {};
+window.__POSTPNG_BOOT.appLoaded = true;
+
 import {loadSettings,saveSettings,parsePageRange,safeBaseName,formatBytes} from './settings-service.js';
 import {loadPdf,renderPage} from './pdf-service.js';
 import {downloadBlob,zipImages,copyText} from './export-service.js';
@@ -29,6 +32,7 @@ function init(){
     renderAll();
     console.info('renderAll completed');
     console.info('init completed');
+    window.__POSTPNG_BOOT.initCompleted = true;
     setStartupStatus('アプリ起動完了');
     setTimeout(()=>startupStatus()?.classList.add('hidden'),3000);
   }catch(error){
@@ -63,3 +67,4 @@ function setCard(s){const imgs=state.images.filter(i=>i.setNumber===s); const se
 function pageCard(img,index){const a=document.createElement('article'); a.className='page-card'; a.innerHTML=`<h3>ページ ${img.pageNumber}</h3><button class="image-button" aria-label="ページ${img.pageNumber}を拡大表示"><img loading="lazy" alt="ページ${img.pageNumber}の変換プレビュー" src="${img.url}"></button><p class="page-meta">サイズ：${img.width} × ${img.height}px / 容量：${formatBytes(img.blob.size)}</p><div class="card-actions"><button>保存</button><button>情報</button></div><label class="alt-field">ALT下書き<textarea rows="2">${img.alt}</textarea></label><button class="copy-alt">ALTをコピー</button>`; $('.image-button',a).onclick=()=>openDialog(index); const buttons=$$('button',a); buttons[1].onclick=()=>downloadBlob(img.blob,img.fileName); buttons[2].onclick=()=>toast(`ファイル名: ${img.fileName} / ページ: ${img.pageNumber} / ${img.width}×${img.height}px / ${formatBytes(img.blob.size)} / ${img.fileName.endsWith('.jpg')?'JPEG':'PNG'}${img.setNumber?` / X投稿セット${img.setNumber}`:''}`); $('.alt-field textarea',a).oninput=e=>img.alt=e.target.value; $('.copy-alt',a).onclick=async()=>{if(await copyText(img.alt)) toast('ALTをコピーしました');}; return a;}
 function openDialog(index){if(index<0||index>=state.images.length)return; state.dialogIndex=index; const img=state.images[index]; $('#dialogTitle').textContent=`ページ ${img.pageNumber} / ${state.images.length}`; $('#dialogImage').src=img.url; $('#previewDialog').showModal();}
 init();
+import('./pwa-service.js').catch(console.warn);
