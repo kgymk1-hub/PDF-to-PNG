@@ -57,10 +57,10 @@
         <label>余白トリミング<select id="xTrim"><option value="on" selected>ON（簡易自動）</option><option value="off">OFF</option></select></label>
         <p class="help">指定横幅は縮小時の上限です。元画像が指定横幅より小さい場合は、画質劣化を避けるため拡大しません。細かい表は2000pxがおすすめです。X投稿モードは白背景PNG固定です。</p><p class="help">ALT下書きは変換結果に紐づきます。PDF変更や再変換を行うと編集内容はリセットされます。</p>
         <details><summary>投稿本文・ALT下書き</summary>
-          <label>タイトル<input id="draftTitle" type="text" placeholder="○○資料"></label>
-          <label>更新日<input id="draftDate" type="text" placeholder="2026年6月22日"></label>
-          <label>補足<textarea id="draftNote" rows="2" placeholder="詳細は添付画像をご確認ください。"></textarea></label>
-          <label>ハッシュタグ<input id="draftTags" type="text" placeholder="#タグ1 #タグ2"></label>
+          <label>タイトル<input id="draftTitle" type="text"></label>
+          <label>更新日<input id="draftDate" type="text"></label>
+          <label>補足<textarea id="draftNote" rows="2"></textarea></label>
+          <label>ハッシュタグ<input id="draftTags" type="text"></label>
           <label>ALTテンプレート<textarea id="altTemplate" rows="2"></textarea></label>
         </details>
       </div>
@@ -68,7 +68,7 @@
         <label>出力形式<select id="normalFormat"><option value="png" selected>PNG（文字・表向け）</option><option value="jpeg">JPEG（写真・軽量）</option></select></label>
         <label id="jpegQualityLabel" class="hidden">JPEG品質<input id="jpegQuality" type="range" min="60" max="92" step="1" value="80"><span id="jpegQualityText">80</span></label>
         <label>解像度倍率<select id="normalScale"><option value="1">1x</option><option value="1.5">1.5x</option><option value="2" selected>2x</option><option value="3">3x</option></select></label>
-        <label>ページ範囲<input id="pageRange" type="text" placeholder="全ページ / 1-4 / 1,3,5"></label>
+        <label>ページ範囲<input id="pageRange" type="text"></label>
         <label>背景<select id="backgroundColor"><option value="white" selected>白</option><option value="transparent">透明（PNGのみ）</option><option value="black">黒</option></select><span id="jpegTransparentHelp" class="help hidden">JPEGでは透明背景は使用できません。白背景に切り替わります。</span></label>
         <label>余白トリミング<select id="normalTrim"><option value="off" selected>OFF</option><option value="on">ON（簡易自動）</option></select></label>
       </div>
