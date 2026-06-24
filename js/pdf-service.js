@@ -1,4 +1,4 @@
-import { canvasToBlob, resizeCanvas, trimWhitespace } from './image-service.js';
+import { canvasToBlob, formatMeta, normalizedFormat, resizeCanvas, trimWhitespace } from './image-service.js';
 
 let pdfjsPromise;
 
@@ -63,7 +63,9 @@ export async function renderPage(pdf, pageNumber, opts) {
   canvas.width = Math.ceil(viewport.width);
   canvas.height = Math.ceil(viewport.height);
 
-  const alpha = opts.background === 'transparent' && opts.format === 'png';
+  const format = normalizedFormat(opts.format);
+  const meta = formatMeta(format);
+  const alpha = opts.background === 'transparent' && format === 'png';
   const backgroundColor = opts.background === 'black' ? '#000' : '#fff';
   const ctx = canvas.getContext('2d', { alpha });
 
@@ -89,6 +91,13 @@ export async function renderPage(pdf, pageNumber, opts) {
 
   output = resizeCanvas(output, opts.width, backgroundColor);
 
-  const blob = await canvasToBlob(output, opts.format, opts.quality / 100);
-  return { blob, width: output.width, height: output.height };
+  const blob = await canvasToBlob(output, format, opts.quality / 100);
+  return {
+    blob,
+    width: output.width,
+    height: output.height,
+    format,
+    mime: meta.mime,
+    ext: meta.ext,
+  };
 }
