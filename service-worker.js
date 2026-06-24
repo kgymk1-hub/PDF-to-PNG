@@ -1,4 +1,4 @@
-const CACHE_NAME = "postpng-maker-v12-polish";
+const CACHE_NAME = "pdf2image-v13-formats";
 const DEBUG = new URL(self.location.href).searchParams.has("debug");
 
 function debugWarn(...args) {

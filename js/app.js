@@ -1,5 +1,5 @@
-window.__POSTPNG_BOOT = window.__POSTPNG_BOOT || {};
-window.__POSTPNG_BOOT.appLoaded = true;
+window.__PDF2IMAGE_BOOT = window.__PDF2IMAGE_BOOT || {};
+window.__PDF2IMAGE_BOOT.appLoaded = true;
 
 import {
   loadSettings,
@@ -29,6 +29,13 @@ const state = {
   dialogIndex: 0,
 };
 const names = { x: "X投稿モード", normal: "通常モード" };
+const FORMAT_META = {
+  png: { label: "PNG", mime: "image/png", ext: "png", qualityEnabled: false },
+  jpeg: { label: "JPEG", mime: "image/jpeg", ext: "jpg", qualityEnabled: true },
+  webp: { label: "WebP", mime: "image/webp", ext: "webp", qualityEnabled: true },
+};
+const normalizedFormat = (format) => FORMAT_META[format] ? format : "png";
+const formatMeta = (format) => FORMAT_META[normalizedFormat(format)];
 const DEBUG = new URLSearchParams(location.search).has("debug");
 
 function debugLog(...args) {
@@ -86,7 +93,7 @@ function init() {
     renderAll();
     debugLog("renderAll completed");
     debugLog("init completed");
-    window.__POSTPNG_BOOT.initCompleted = true;
+    window.__PDF2IMAGE_BOOT.initCompleted = true;
     setStartupStatus("アプリ起動完了");
     setTimeout(() => startupStatus()?.classList.add("hidden"), 3000);
   } catch (error) {
@@ -150,6 +157,8 @@ function bind() {
     (r) => (r.onchange = () => changeMode(r.value)),
   );
   [
+    "xFormat",
+    "xImageQuality",
     "xWidth",
     "xTrim",
     "xQuality",
@@ -171,10 +180,16 @@ function bind() {
       el.addEventListener("change", readUiSettings);
     }
   });
+  $("#xFormat").onchange = () => {
+    updateFormatConstraints();
+    readUiSettings();
+  };
   $("#normalFormat").onchange = () => {
     updateFormatConstraints();
     readUiSettings();
   };
+  $("#xImageQuality").oninput = () =>
+    ($("#xImageQualityText").textContent = $("#xImageQuality").value);
   $("#jpegQuality").oninput = () =>
     ($("#jpegQualityText").textContent = $("#jpegQuality").value);
   $("#dropZone").addEventListener("dragover", (e) => {
@@ -198,25 +213,33 @@ function bind() {
   };
 }
 function updateFormatConstraints() {
-  const isJpeg = $("#normalFormat").value === "jpeg";
-  $("#jpegQualityLabel").classList.toggle("hidden", !isJpeg);
+  const normalFormat = normalizedFormat($("#normalFormat").value);
+  const xFormat = normalizedFormat($("#xFormat").value);
+  const normalNeedsQuality = formatMeta(normalFormat).qualityEnabled;
+  const xNeedsQuality = formatMeta(xFormat).qualityEnabled;
+  $("#jpegQualityLabel").classList.toggle("hidden", !normalNeedsQuality);
+  $("#xImageQualityLabel").classList.toggle("hidden", !xNeedsQuality);
+  $("#xFormatBackgroundHelp").classList.toggle("hidden", !xNeedsQuality);
   const transparent = $("#backgroundColor option[value=transparent]");
-  transparent.disabled = isJpeg;
-  $("#jpegTransparentHelp").classList.toggle("hidden", !isJpeg);
-  if (isJpeg && $("#backgroundColor").value === "transparent")
+  transparent.disabled = normalNeedsQuality;
+  $("#jpegTransparentHelp").classList.toggle("hidden", !normalNeedsQuality);
+  if (normalNeedsQuality && $("#backgroundColor").value === "transparent") {
     $("#backgroundColor").value = "white";
+  }
 }
 function readUiSettings() {
   updateFormatConstraints();
   Object.assign(state.settings, {
     mode: document.querySelector("input[name=mode]:checked").value,
     x: {
+      format: normalizedFormat($("#xFormat").value),
       width: $("#xWidth").value,
       trim: $("#xTrim").value,
       quality: $("#xQuality").value,
+      imageQuality: Number($("#xImageQuality").value),
     },
     normal: {
-      format: $("#normalFormat").value,
+      format: normalizedFormat($("#normalFormat").value),
       scale: $("#normalScale").value,
       range: $("#pageRange").value,
       background: $("#backgroundColor").value,
@@ -238,10 +261,13 @@ function applySettingsToUi() {
   document.querySelector(
     `input[name=mode][value=${state.settings.mode}]`,
   ).checked = true;
+  $("#xFormat").value = normalizedFormat(state.settings.x.format);
+  $("#xImageQuality").value = state.settings.x.imageQuality ?? 80;
+  $("#xImageQualityText").textContent = state.settings.x.imageQuality ?? 80;
   $("#xWidth").value = state.settings.x.width;
   $("#xTrim").value = state.settings.x.trim;
   $("#xQuality").value = state.settings.x.quality;
-  $("#normalFormat").value = state.settings.normal.format;
+  $("#normalFormat").value = normalizedFormat(state.settings.normal.format);
   $("#normalScale").value = state.settings.normal.scale;
   $("#pageRange").value = state.settings.normal.range;
   $("#backgroundColor").value = state.settings.normal.background;
@@ -331,8 +357,8 @@ async function convert() {
         state.settings.mode === "x"
           ? {
               scale: state.settings.x.quality === "high" ? 3 : 2,
-              format: "png",
-              quality: 92,
+              format: normalizedFormat(state.settings.x.format),
+              quality: state.settings.x.imageQuality ?? 80,
               background: "white",
               trim: state.settings.x.trim === "on",
               width: state.settings.x.width,
@@ -351,6 +377,7 @@ async function convert() {
         ...r,
         pageNumber: p,
         fileName,
+        format: normalizedFormat(opt.format),
         url: URL.createObjectURL(r.blob),
         setNumber: Math.ceil(p / 4),
         alt: makeAlt(p),
@@ -379,7 +406,7 @@ async function convert() {
   renderAll();
 }
 function fileNameFor(page, fmt) {
-  const ext = fmt === "jpeg" ? "jpg" : "png";
+  const ext = formatMeta(fmt).ext;
   const base = safeBaseName(state.file?.name);
   if (state.settings.mode === "x")
     return `${base}_xset${String(Math.ceil(page / 4)).padStart(2, "0")}_page-${String(page).padStart(2, "0")}.${ext}`;
@@ -417,7 +444,7 @@ async function downloadAll() {
   setProgress(0);
   await zipImages(
     state.images,
-    `${base}_${state.settings.mode === "x" ? "xpost_all" : "png"}.zip`,
+    `${base}_${state.settings.mode === "x" ? "xpost_all" : normalizedFormat(state.settings.normal.format)}.zip`,
     setProgress,
   )
     .then(showZipComplete)
@@ -458,7 +485,7 @@ function renderMode() {
   $("#selectedModeText").textContent = names[m];
   $("#modeHelp").textContent =
     m === "x"
-      ? "4ページごとにX投稿セットを作り、白背景PNGで出力します。横幅は設定から選択できます。"
+      ? "4ページごとにX投稿セットを作ります。初期値はPNG（推奨）です。横幅は設定から選択できます。"
       : "ページ範囲、形式、倍率、背景色を選べる汎用変換モードです。";
   $("#xSettings").classList.toggle("hidden", m !== "x");
   $("#normalSettings").classList.toggle("hidden", m !== "normal");
@@ -551,7 +578,7 @@ function pageCard(img, index) {
 ページ: ${img.pageNumber}
 サイズ: ${img.width} × ${img.height}px
 容量: ${formatBytes(img.blob.size)}
-形式: ${img.fileName.endsWith(".jpg") ? "JPEG" : "PNG"}${
+形式: ${formatMeta(img.format).label}${
       state.settings.mode === "x" ? `
 X投稿セット: ${img.setNumber}` : ""
     }`);

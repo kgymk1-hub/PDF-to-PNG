@@ -5,7 +5,7 @@ export async function canvasToBlob(canvas, format = 'png', quality = 0.8) {
         if (blob) resolve(blob);
         else reject(new Error('画像Blobの生成に失敗しました。'));
       },
-      format === 'jpeg' ? 'image/jpeg' : 'image/png',
+      format === 'jpeg' ? 'image/jpeg' : format === 'webp' ? 'image/webp' : 'image/png',
       quality,
     );
   });

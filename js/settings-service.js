@@ -1,9 +1,11 @@
 export const DEFAULTS = {
   mode: "x",
   x: {
+    format: "png",
     width: "1600",
     trim: "on",
     quality: "standard",
+    imageQuality: 80,
   },
   normal: {
     format: "png",
@@ -23,7 +25,7 @@ export const DEFAULTS = {
   },
 };
 
-const KEY = "postpng-maker-settings-v2";
+const KEY = "pdf2image-settings-v3";
 
 export function clone(value) {
   if (typeof structuredClone === "function") return structuredClone(value);
