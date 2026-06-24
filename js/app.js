@@ -353,11 +353,19 @@ async function convert() {
       setMessage(
         `変換中 ${idx + 1} / ${pages.length}ページ 現在：${p}ページ目を画像化しています`,
       );
+      const currentFormat = normalizedFormat(
+        state.settings.mode === "x"
+          ? state.settings.x.format
+          : state.settings.normal.format,
+      );
+      const meta = formatMeta(currentFormat);
       const opt =
         state.settings.mode === "x"
           ? {
               scale: state.settings.x.quality === "high" ? 3 : 2,
-              format: normalizedFormat(state.settings.x.format),
+              format: currentFormat,
+              mime: meta.mime,
+              ext: meta.ext,
               quality: state.settings.x.imageQuality ?? 80,
               background: "white",
               trim: state.settings.x.trim === "on",
@@ -365,19 +373,23 @@ async function convert() {
             }
           : {
               scale: Number(state.settings.normal.scale),
-              format: state.settings.normal.format,
+              format: currentFormat,
+              mime: meta.mime,
+              ext: meta.ext,
               quality: state.settings.normal.quality,
               background: state.settings.normal.background,
               trim: state.settings.normal.trim === "on",
               width: "original",
             };
       const r = await renderPage(state.pdf, p, opt);
-      const fileName = fileNameFor(p, opt.format);
+      const fileName = fileNameFor(p, r.format);
       state.images.push({
         ...r,
         pageNumber: p,
         fileName,
-        format: normalizedFormat(opt.format),
+        format: r.format,
+        mime: r.mime,
+        ext: r.ext,
         url: URL.createObjectURL(r.blob),
         setNumber: Math.ceil(p / 4),
         alt: makeAlt(p),

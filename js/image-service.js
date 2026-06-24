@@ -1,12 +1,34 @@
+const FORMAT_META = {
+  png: { mime: 'image/png', ext: 'png', qualityEnabled: false },
+  jpeg: { mime: 'image/jpeg', ext: 'jpg', qualityEnabled: true },
+  webp: { mime: 'image/webp', ext: 'webp', qualityEnabled: true },
+};
+
+export const normalizedFormat = (format) =>
+  FORMAT_META[format] ? format : 'png';
+
+export const formatMeta = (format) => FORMAT_META[normalizedFormat(format)];
+
 export async function canvasToBlob(canvas, format = 'png', quality = 0.8) {
+  const normalized = normalizedFormat(format);
+  const meta = formatMeta(normalized);
+  const blobQuality = meta.qualityEnabled ? quality : undefined;
+
   return new Promise((resolve, reject) => {
     canvas.toBlob(
       (blob) => {
-        if (blob) resolve(blob);
-        else reject(new Error('画像Blobの生成に失敗しました。'));
+        if (blob) {
+          resolve(blob);
+          return;
+        }
+
+        const message = normalized === 'webp'
+          ? 'WebP画像の生成に失敗しました。このブラウザがWebP保存に対応しているか確認してください。'
+          : '画像Blobの生成に失敗しました。';
+        reject(new Error(message));
       },
-      format === 'jpeg' ? 'image/jpeg' : format === 'webp' ? 'image/webp' : 'image/png',
-      quality,
+      meta.mime,
+      blobQuality,
     );
   });
 }

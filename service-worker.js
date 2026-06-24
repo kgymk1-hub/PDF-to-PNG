@@ -1,4 +1,4 @@
-const CACHE_NAME = "pdf2image-v13-formats";
+const CACHE_NAME = "pdf2image-v15-format-fix";
 const DEBUG = new URL(self.location.href).searchParams.has("debug");
 
 function debugWarn(...args) {
