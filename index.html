@@ -4,15 +4,15 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#2563EB">
-  <meta name="description" content="スマホでX投稿用4枚セットを作れる、ブラウザ内完結のPDF→PNG変換PWA">
-  <title>PostPNG Maker</title>
+  <meta name="description" content="PDFをPNG/JPEG/WebP画像に変換できる、ブラウザ内完結のPWA">
+  <title>PDF2IMAGE</title>
   <link rel="manifest" href="manifest.json">
   <link rel="stylesheet" href="css/style.css">
   <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
 </head>
 <body>
   <header class="app-header">
-    <div><p class="brand">PostPNG Maker</p><p id="modeBadge" class="mode-badge">X投稿モード</p></div>
+    <div><p class="brand">PDF2IMAGE</p><p id="modeBadge" class="mode-badge">X投稿モード</p></div>
     <button id="settingsJumpBtn" class="ghost icon-label" type="button" aria-label="出力設定へ移動">設定へ</button>
   </header>
 
@@ -24,12 +24,12 @@
         <label><input type="radio" name="mode" value="x" checked><span>X投稿モード</span></label>
         <label><input type="radio" name="mode" value="normal"><span>通常モード</span></label>
       </div>
-      <p id="modeHelp" class="help">4ページごとにX投稿セットを作り、白背景PNGで出力します。横幅は設定から選択できます。</p>
+      <p id="modeHelp" class="help">4ページごとにX投稿セットを作ります。初期値はPNG（推奨）です。横幅は設定から選択できます。</p>
     </section>
 
     <section id="dropZone" class="file-card card" aria-labelledby="file-title">
       <h2 id="file-title">PDFを選択してください</h2>
-      <p>スマホ内のPDFをPNG/JPEG画像に変換します。ファイルは外部サーバーへ送信されません。</p>
+      <p>スマホ内のPDFをPNG/JPEG/WebP画像に変換します。ファイルは外部サーバーへ送信されません。</p>
       <label class="file-picker button primary large">
         <input id="pdfFile" type="file" accept="application/pdf,.pdf">
         <span>PDFを選択</span>
@@ -53,11 +53,15 @@
     <section id="settingsCard" class="card settings-card" aria-labelledby="settings-title">
       <h2 id="settings-title">出力設定</h2>
       <div id="xSettings" class="settings-group">
+        <label>出力形式<select id="xFormat"><option value="png" selected>PNG（推奨）</option><option value="jpeg">JPEG（軽量）</option><option value="webp">WebP（軽量・高画質）</option></select></label>
+        <p class="help format-help"><strong>PNG（推奨）</strong>：文字・表がくっきり。X投稿向けの基本形式<br><strong>JPEG</strong>：軽量。画像サイズを抑えたい場合向け<br><strong>WebP</strong>：軽量・高画質。ただし共有先によっては互換性に注意</p>
+        <label id="xImageQualityLabel" class="hidden">JPEG/WebP品質<input id="xImageQuality" type="range" min="60" max="92" step="1" value="80"><span id="xImageQualityText">80</span></label>
         <label>出力横幅<select id="xWidth"><option value="1200">1200px：軽量</option><option value="1600" selected>1600px：標準</option><option value="2000">2000px：高精細</option><option value="original">元サイズ</option></select></label>
         <label>余白トリミング<select id="xTrim"><option value="on" selected>ON（簡易自動）</option><option value="off">OFF</option></select></label>
-        <label>画質<select id="xQuality"><option value="standard" selected>標準（2x）</option><option value="high">高精細（3x）</option></select></label>
-        <p class="help">細かい表は高精細がおすすめです。変換に時間がかかる場合があります。</p>
-        <p class="help">指定横幅は縮小時の上限です。元画像が指定横幅より小さい場合は、画質劣化を避けるため拡大しません。細かい表は2000pxがおすすめです。X投稿モードは白背景PNG固定です。</p><p class="help">ALT下書きは変換結果に紐づきます。PDF変更や再変換を行うと編集内容はリセットされます。</p>
+        <label>高精細設定<select id="xQuality"><option value="standard" selected>標準（2x）</option><option value="high">高精細（3x）</option></select></label>
+        <p id="xFormatBackgroundHelp" class="help hidden">JPEG / WebP では透明背景は使えません。X投稿モードは白背景で出力します。</p>
+        <p class="help">細かい表はPNGと高精細がおすすめです。変換に時間がかかる場合があります。</p>
+        <p class="help">指定横幅は縮小時の上限です。元画像が指定横幅より小さい場合は、画質劣化を避けるため拡大しません。細かい表は2000pxがおすすめです。</p><p class="help">ALT下書きは変換結果に紐づきます。PDF変更や再変換を行うと編集内容はリセットされます。</p>
         <details><summary>投稿本文・ALT下書き</summary>
           <label>タイトル<input id="draftTitle" type="text"></label>
           <label>更新日<input id="draftDate" type="text"></label>
@@ -67,11 +71,12 @@
         </details>
       </div>
       <div id="normalSettings" class="settings-group hidden">
-        <label>出力形式<select id="normalFormat"><option value="png" selected>PNG（文字・表向け）</option><option value="jpeg">JPEG（写真・軽量）</option></select></label>
-        <label id="jpegQualityLabel" class="hidden">JPEG品質<input id="jpegQuality" type="range" min="60" max="92" step="1" value="80"><span id="jpegQualityText">80</span></label>
+        <label>出力形式<select id="normalFormat"><option value="png" selected>PNG（文字・表・資料向け）</option><option value="jpeg">JPEG（軽量・写真向け）</option><option value="webp">WebP（軽量・高画質）</option></select></label>
+        <p class="help format-help"><strong>PNG</strong>：文字・表・資料向け<br><strong>JPEG</strong>：軽量・写真向け<br><strong>WebP</strong>：軽量・高画質</p>
+        <label id="jpegQualityLabel" class="hidden">JPEG/WebP品質<input id="jpegQuality" type="range" min="60" max="92" step="1" value="80"><span id="jpegQualityText">80</span></label>
         <label>解像度倍率<select id="normalScale"><option value="1">1x</option><option value="1.5">1.5x</option><option value="2" selected>2x</option><option value="3">3x</option></select></label>
         <label>ページ範囲<input id="pageRange" type="text"></label>
-        <label>背景<select id="backgroundColor"><option value="white" selected>白</option><option value="transparent">透明（PNGのみ）</option><option value="black">黒</option></select><span id="jpegTransparentHelp" class="help hidden">JPEGでは透明背景は使用できません。白背景に切り替わります。</span></label>
+        <label>背景<select id="backgroundColor"><option value="white" selected>白</option><option value="transparent">透明（PNGのみ）</option><option value="black">黒</option></select><span id="jpegTransparentHelp" class="help hidden">JPEG / WebP では透明背景は使えません。白背景で出力します。</span></label>
         <label>余白トリミング<select id="normalTrim"><option value="off" selected>OFF</option><option value="on">ON（簡易自動）</option></select></label>
       </div>
     </section>
@@ -95,7 +100,7 @@
 
   <!-- app.js が構文エラー等で実行されない場合に、画面上へ原因を出すための起動診断 -->
   <script>
-    window.__POSTPNG_BOOT = {
+    window.__PDF2IMAGE_BOOT = {
       startedAt: Date.now(),
       appLoaded: false,
       initCompleted: false
@@ -120,13 +125,13 @@
     });
 
     window.setTimeout(function () {
-      if (!window.__POSTPNG_BOOT || !window.__POSTPNG_BOOT.appLoaded) {
+      if (!window.__PDF2IMAGE_BOOT || !window.__PDF2IMAGE_BOOT.appLoaded) {
         var el = document.getElementById('startupStatus');
         if (el) {
           el.classList.add('error');
           el.textContent = 'アプリ本体 js/app.js または関連モジュールが読み込まれていません。古いService Workerキャッシュ、GitHub Pagesの反映遅延、JavaScriptモジュールの構文エラー、または読み込み失敗が考えられます。サイトデータを削除して再読み込みしてください。';
         }
-      } else if (!window.__POSTPNG_BOOT.initCompleted) {
+      } else if (!window.__PDF2IMAGE_BOOT.initCompleted) {
         var el2 = document.getElementById('startupStatus');
         if (el2) {
           el2.classList.add('error');
